@@ -1,0 +1,262 @@
+/* Base styles */
+:root {
+    --background-color: #fafafa;
+    --text-color: #333;
+    --divider-color: #999;
+    --highlight-color: #e63946;
+    --note-bg-color: #f8f8f8;
+    --note-border-color: #ddd;
+    --section-color: #888;
+    --header-bg: #f2f2f2;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--text-color);
+    background-color: var(--background-color);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: var(--header-bg);
+    border-bottom: 1px solid var(--divider-color);
+}
+
+h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.actions button {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    margin-left: 1rem;
+    cursor: pointer;
+    color: var(--text-color);
+    opacity: 0.8;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.actions button:hover {
+    opacity: 1;
+    color: var(--highlight-color);
+}
+
+/* Main content */
+main {
+    flex: 1;
+    overflow: hidden;
+}
+
+.columns {
+    display: flex;
+    height: 100%;
+}
+
+.column {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.plot-column {
+    flex: 2;
+}
+
+.subtext-column {
+    flex: 1;
+}
+
+.column-header {
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-color);
+    opacity: 0.6;
+}
+
+.content-area {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    padding: 1.5rem;
+}
+
+/* Divider line */
+.divider {
+    width: 3px;
+    background-color: var(--divider-color);
+    position: relative;
+    cursor: col-resize;
+}
+
+/* Note styles */
+.note {
+    position: absolute;
+    min-width: 150px;
+    max-width: 350px;
+    background-color: var(--note-bg-color);
+    border: 1px solid var(--note-border-color);
+    border-radius: 4px;
+    padding: 0.8rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+}
+
+.note textarea {
+    width: 100%;
+    border: none;
+    background: transparent;
+    resize: both;
+    min-height: 60px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.note-dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: var(--highlight-color);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    cursor: move;
+}
+
+.note-dot::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+}
+
+/* Section divider styles */
+.section-divider {
+    position: absolute;
+    height: 2px;
+    width: 100%;
+    background-color: var(--section-color);
+    transform: translateY(-50%);
+    z-index: 15;
+}
+
+.section-label {
+    position: absolute;
+    background-color: var(--section-color);
+    color: white;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    left: 50%;
+    top: -12px;
+    white-space: nowrap;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    text-align: center;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 1.5rem;
+    border-radius: 4px;
+    max-width: 400px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content h3 {
+    margin-bottom: 1rem;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 0.6rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--note-border-color);
+    border-radius: 3px;
+    font-family: inherit;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.modal-actions button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+#cancel-section-label {
+    background-color: #e0e0e0;
+}
+
+#save-section-label {
+    background-color: var(--highlight-color);
+    color: white;
+}
+
+/* Connection line between dot and note */
+.connection-line {
+    position: absolute;
+    background-color: var(--highlight-color);
+    opacity: 0.6;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* Active/selected note */
+.note.active {
+    border-color: var(--highlight-color);
+    box-shadow: 0 0 0 1px var(--highlight-color);
+}
+
+.note-dot.active {
+    transform: translate(-50%, -50%) scale(1.2);
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chiaroscuro</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/inter-ui/3.19.3/inter.min.css">
+</head>
+<body>
+    <header>
+        <h1>Chiaroscuro</h1>
+        <div class="actions">
+            <button id="save-btn" title="Save"><i class="fas fa-save"></i></button>
+            <button id="export-btn" title="Export"><i class="fas fa-file-export"></i></button>
+            <button id="import-btn" title="Import"><i class="fas fa-file-import"></i></button>
+            <button id="clear-btn" title="Clear All"><i class="fas fa-trash"></i></button>
+        </div>
+    </header>
+    
+    <main>
+        <div class="columns">
+            <div class="column plot-column" id="plot-column">
+                <div class="column-header">Plot</div>
+                <div class="content-area" id="plot-content"></div>
+            </div>
+            
+            <div class="divider" id="divider">
+                <!-- Section markers will be added here -->
+            </div>
+            
+            <div class="column subtext-column" id="subtext-column">
+                <div class="column-header">Subtext</div>
+                <div class="content-area" id="subtext-content"></div>
+            </div>
+        </div>
+    </main>
+    
+    <div id="section-label-modal" class="modal">
+        <div class="modal-content">
+            <h3>Section Label</h3>
+            <input type="text" id="section-label-input" placeholder="Enter section name">
+            <div class="modal-actions">
+                <button id="cancel-section-label">Cancel</button>
+                <button id="save-section-label">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
