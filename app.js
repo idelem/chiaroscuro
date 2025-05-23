@@ -26,6 +26,9 @@ class Chiaroscuro {
         this.isResizing = false;
         this.isDragging = false;
         this.lastMousePosition = { x: 0, y: 0 };
+        this.deletedNotes = [];
+        this.deletedSections = [];
+        this.currentActiveNote = null;
 
         // Initialize
         this.setupEventListeners();
@@ -34,8 +37,8 @@ class Chiaroscuro {
 
     setupEventListeners() {
         // Click events for columns to add notes
-        this.plotContent.addEventListener('click', (e) => this.handleColumnClick(e, 'plot'));
-        this.subtextContent.addEventListener('click', (e) => this.handleColumnClick(e, 'subtext'));
+        this.plotContent.addEventListener('dblclick', (e) => this.handleColumnClick(e, 'plot'));
+        this.subtextContent.addEventListener('dblclick', (e) => this.handleColumnClick(e, 'subtext'));
 
         // Click event for divider to add sections
         this.divider.addEventListener('click', (e) => this.handleDividerClick(e));
@@ -59,23 +62,23 @@ class Chiaroscuro {
 
         //delete and undo events
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Delete' && this.activeNote) {
-                this.deleteNote(this.activeNote.noteId);
-                this.activeNote = null;
+            if (e.key === 'Delete' && this.currentActiveNote) {
+                this.deleteNote(this.currentActiveNote.noteId);
+                this.currentActiveNote = null;
             } else if (e.ctrlKey && e.key === 'z') {
                 e.preventDefault();
                 this.undoDelete();
-    }
-});
+            }
+        });
 
-// Add right-click context menu for notes
-document.addEventListener('contextmenu', (e) => {
-    const note = e.target.closest('.note');
-    if (note) {
-        e.preventDefault();
-        this.deleteNote(note.id);
-    }
-});
+        // Add right-click context menu for notes
+        document.addEventListener('contextmenu', (e) => {
+            const note = e.target.closest('.note');
+            if (note) {
+                e.preventDefault();
+                this.deleteNote(note.id);
+            }
+        });
     }
 
     handleColumnClick(e, columnType) {
@@ -131,12 +134,19 @@ document.addEventListener('contextmenu', (e) => {
             e.stopPropagation();
         });
 
-        // Set up dragging for note
+        // Set up dragging for note and track active note
         note.addEventListener('mousedown', (e) => {
             if (e.target === note || e.target.tagName !== 'TEXTAREA') {
                 this.startDragNote(e, noteId, dotId);
                 e.preventDefault();
             }
+            // Set this note as active for deletion
+            this.setActiveNote(noteId, dotId);
+        });
+
+        // Also track when textarea gets focus
+        note.querySelector('textarea').addEventListener('focus', () => {
+            this.setActiveNote(noteId, dotId);
         });
 
         // Create connection line
@@ -256,8 +266,6 @@ document.addEventListener('contextmenu', (e) => {
         }
         
         this.lastMousePosition = { x: e.clientX, y: e.clientY };
-        this.deletedNotes = [];
-        this.deletedSections = [];
     }
 
     handleMouseUp() {
@@ -691,6 +699,19 @@ document.addEventListener('contextmenu', (e) => {
         this.sections.splice(sectionIndex, 1);
         
         this.saveToLocalStorage();
+    }
+
+    setActiveNote(noteId, dotId) {
+        // Remove active class from previous note
+        if (this.currentActiveNote) {
+            document.getElementById(this.currentActiveNote.noteId)?.classList.remove('active');
+            document.getElementById(this.currentActiveNote.dotId)?.classList.remove('active');
+        }
+        
+        // Set new active note
+        this.currentActiveNote = { noteId, dotId };
+        document.getElementById(noteId)?.classList.add('active');
+        document.getElementById(dotId)?.classList.add('active');
     }
 }
 
