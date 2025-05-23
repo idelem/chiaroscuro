@@ -56,6 +56,26 @@ class Chiaroscuro {
 
         // Auto-save every 30 seconds
         setInterval(() => this.saveToLocalStorage(), 30000);
+
+        //delete and undo events
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' && this.activeNote) {
+                this.deleteNote(this.activeNote.noteId);
+                this.activeNote = null;
+            } else if (e.ctrlKey && e.key === 'z') {
+                e.preventDefault();
+                this.undoDelete();
+    }
+});
+
+// Add right-click context menu for notes
+document.addEventListener('contextmenu', (e) => {
+    const note = e.target.closest('.note');
+    if (note) {
+        e.preventDefault();
+        this.deleteNote(note.id);
+    }
+});
     }
 
     handleColumnClick(e, columnType) {
@@ -183,17 +203,21 @@ class Chiaroscuro {
         const dy = e.clientY - this.lastMousePosition.y;
         
         if (this.activeDot) {
-            // Dragging a dot (vertical only)
+            // Dragging a dot (vertical only) - note follows
             const dot = document.getElementById(this.activeDot.dotId);
-            const currentTop = parseInt(dot.style.top);
-            const newTop = Math.max(0, currentTop + dy);
+            const note = document.getElementById(this.activeDot.noteId);
+            const currentDotTop = parseInt(dot.style.top);
+            const currentNoteTop = parseInt(note.style.top);
+            const newDotTop = Math.max(0, currentDotTop + dy);
             
-            dot.style.top = `${newTop}px`;
+            dot.style.top = `${newDotTop}px`;
+            note.style.top = `${currentNoteTop + dy}px`;
             
             // Update note data
             const noteIndex = this.notes.findIndex(note => note.dotId === this.activeDot.dotId);
             if (noteIndex !== -1) {
-                this.notes[noteIndex].dotPosition = newTop;
+                this.notes[noteIndex].dotPosition = newDotTop;
+                this.notes[noteIndex].position.y = currentNoteTop + dy;
             }
             
             // Update connection line
@@ -216,9 +240,24 @@ class Chiaroscuro {
             
             // Update connection line
             this.updateConnectionLine(this.activeNote.dotId, this.activeNote.noteId);
+        } else if (this.activeSection) {
+            // Dragging a section (vertical only)
+            const section = document.getElementById(this.activeSection.sectionId);
+            const currentTop = parseInt(section.style.top);
+            const newTop = Math.max(0, currentTop + dy);
+            
+            section.style.top = `${newTop}px`;
+            
+            // Update section data
+            const sectionIndex = this.sections.findIndex(s => s.id === this.activeSection.sectionId);
+            if (sectionIndex !== -1) {
+                this.sections[sectionIndex].position = newTop;
+            }
         }
         
         this.lastMousePosition = { x: e.clientX, y: e.clientY };
+        this.deletedNotes = [];
+        this.deletedSections = [];
     }
 
     handleMouseUp() {
@@ -235,6 +274,10 @@ class Chiaroscuro {
                 document.getElementById(this.activeNote.noteId).classList.remove('active');
                 document.getElementById(this.activeNote.dotId).classList.remove('active');
                 this.activeNote = null;
+            }
+
+            if (this.activeSection) {
+                this.activeSection = null;
             }
             
             // Save changes
@@ -256,31 +299,27 @@ class Chiaroscuro {
         const noteData = this.notes.find(n => n.noteId === noteId);
         if (!noteData) return;
         
-        // Calculate coordinates
+        // Calculate horizontal connection
         const dotCenter = {
             x: dotRect.left + dotRect.width / 2,
             y: dotRect.top + dotRect.height / 2
         };
         
-        const noteCenter = {
-            x: noteRect.left + noteRect.width / 2,
-            y: noteRect.top + noteRect.height / 2
+        const noteEdge = {
+            x: noteData.columnType === 'plot' ? noteRect.right : noteRect.left,
+            y: dotCenter.y // Force horizontal alignment
         };
         
-        // Calculate line dimensions
-        const angle = Math.atan2(noteCenter.y - dotCenter.y, noteCenter.x - dotCenter.x);
-        const length = Math.sqrt(
-            Math.pow(noteCenter.x - dotCenter.x, 2) + 
-            Math.pow(noteCenter.y - dotCenter.y, 2)
-        );
+        // Calculate line dimensions (horizontal only)
+        const length = Math.abs(noteEdge.x - dotCenter.x);
+        const startX = Math.min(dotCenter.x, noteEdge.x);
         
-        // Set line properties
+        // Set line properties (no rotation)
         line.style.width = `${length}px`;
         line.style.height = '2px';
-        line.style.left = `${dotCenter.x}px`;
+        line.style.left = `${startX}px`;
         line.style.top = `${dotCenter.y}px`;
-        line.style.transform = `rotate(${angle}rad)`;
-        line.style.transformOrigin = '0 0';
+        line.style.transform = 'none';
         
         // Update text in data
         if (noteData) {
@@ -335,6 +374,20 @@ class Chiaroscuro {
         labelEl.addEventListener('click', (e) => {
             e.stopPropagation();
             this.editSectionLabel(section.id, label);
+        });
+
+        // Add drag handler for section
+        section.addEventListener('mousedown', (e) => {
+            if (e.target === section) {
+                this.startDragSection(e, sectionId);
+                e.stopPropagation();
+            }
+        });
+
+        // Add right-click delete
+        section.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.deleteSection(sectionId);
         });
         
         // Generate unique ID
@@ -556,6 +609,88 @@ class Chiaroscuro {
         // Clear connection lines
         const lines = document.querySelectorAll('.connection-line');
         lines.forEach(line => line.remove());
+    }
+
+    deleteNote(noteId) {
+        const noteIndex = this.notes.findIndex(note => note.noteId === noteId);
+        if (noteIndex === -1) return;
+        
+        const noteData = this.notes[noteIndex];
+        
+        // Store for undo
+        this.deletedNotes.push({
+            ...noteData,
+            timestamp: Date.now()
+        });
+        
+        // Remove from DOM
+        document.getElementById(noteData.noteId)?.remove();
+        document.getElementById(noteData.dotId)?.remove();
+        document.getElementById(noteData.lineId)?.remove();
+        
+        // Remove from data
+        this.notes.splice(noteIndex, 1);
+        
+        this.saveToLocalStorage();
+    }
+
+    undoDelete() {
+        if (this.deletedNotes.length === 0) return;
+        
+        const noteData = this.deletedNotes.pop();
+        
+        // Recreate the note with original data
+        const noteId = this.createNote(
+            noteData.position.x,
+            noteData.position.y,
+            noteData.columnType
+        );
+        
+        // Restore text content
+        const noteEl = document.getElementById(noteId);
+        if (noteEl) {
+            const textarea = noteEl.querySelector('textarea');
+            if (textarea) {
+                textarea.value = noteData.text;
+            }
+        }
+        
+        // Update dot position
+        const newNote = this.notes[this.notes.length - 1];
+        const dot = document.getElementById(newNote.dotId);
+        if (dot) {
+            dot.style.top = `${noteData.dotPosition}px`;
+        }
+        
+        this.updateConnectionLine(newNote.dotId, newNote.noteId);
+    }
+
+    startDragSection(e, sectionId) {
+        e.preventDefault();
+        this.isDragging = true;
+        this.activeSection = { sectionId };
+        this.lastMousePosition = { x: e.clientX, y: e.clientY };
+    }
+
+    deleteSection(sectionId) {
+        const sectionIndex = this.sections.findIndex(section => section.id === sectionId);
+        if (sectionIndex === -1) return;
+        
+        const sectionData = this.sections[sectionIndex];
+        
+        // Store for undo
+        this.deletedSections.push({
+            ...sectionData,
+            timestamp: Date.now()
+        });
+        
+        // Remove from DOM
+        document.getElementById(sectionId)?.remove();
+        
+        // Remove from data
+        this.sections.splice(sectionIndex, 1);
+        
+        this.saveToLocalStorage();
     }
 }
 

@@ -117,11 +117,16 @@ main {
     min-width: 150px;
     max-width: 350px;
     background-color: var(--note-bg-color);
-    border: 1px solid var(--note-border-color);
+    border: 1px solid transparent;
     border-radius: 4px;
     padding: 0.8rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     z-index: 10;
+}
+
+.note:hover,
+.note:focus-within {
+    border-color: var(--note-border-color);
 }
 
 .note textarea {
