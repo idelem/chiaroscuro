@@ -213,39 +213,50 @@ class Chiaroscuro {
         const dy = e.clientY - this.lastMousePosition.y;
         
         if (this.activeDot) {
-            // Dragging a dot (vertical only) - note follows
+            // Dragging a dot (vertical only) - note does NOT follow
             const dot = document.getElementById(this.activeDot.dotId);
-            const note = document.getElementById(this.activeDot.noteId);
             const currentDotTop = parseInt(dot.style.top);
-            const currentNoteTop = parseInt(note.style.top);
             const newDotTop = Math.max(0, currentDotTop + dy);
             
             dot.style.top = `${newDotTop}px`;
-            note.style.top = `${currentNoteTop + dy}px`;
             
-            // Update note data
+            // Update dot position in data (note position stays the same)
             const noteIndex = this.notes.findIndex(note => note.dotId === this.activeDot.dotId);
             if (noteIndex !== -1) {
                 this.notes[noteIndex].dotPosition = newDotTop;
-                this.notes[noteIndex].position.y = currentNoteTop + dy;
             }
             
             // Update connection line
             this.updateConnectionLine(this.activeDot.dotId, this.activeDot.noteId);
         } else if (this.activeNote) {
-            // Dragging a note
+            // Drag note - dot follows the note's vertical movement
             const note = document.getElementById(this.activeNote.noteId);
-            const currentLeft = parseInt(note.style.left);
-            const currentTop = parseInt(note.style.top);
+            const dot = document.getElementById(this.activeNote.dotId);
+            const currentNoteLeft = parseInt(note.style.left);
+            const currentNoteTop = parseInt(note.style.top);
+            const currentDotTop = parseInt(dot.style.top);
             
-            note.style.left = `${currentLeft + dx}px`;
-            note.style.top = `${currentTop + dy}px`;
+            const newNoteLeft = currentNoteLeft + dx;
+            const newNoteTop = currentNoteTop + dy;
+            
+            note.style.left = `${newNoteLeft}px`;
+            note.style.top = `${newNoteTop}px`;
+            
+            // Calculate where dot should be based on note's bottom position
+            const noteRect = note.getBoundingClientRect();
+            const dividerRect = this.divider.getBoundingClientRect();
+            const plotContentRect = this.plotContent.getBoundingClientRect();
+            
+            // Dot position should align with bottom of note
+            const newDotTop = (noteRect.bottom - dividerRect.top) + this.plotContent.scrollTop;
+            dot.style.top = `${Math.max(0, newDotTop)}px`;
             
             // Update note data
             const noteIndex = this.notes.findIndex(note => note.noteId === this.activeNote.noteId);
             if (noteIndex !== -1) {
-                this.notes[noteIndex].position.x = currentLeft + dx;
-                this.notes[noteIndex].position.y = currentTop + dy;
+                this.notes[noteIndex].position.x = newNoteLeft;
+                this.notes[noteIndex].position.y = newNoteTop;
+                this.notes[noteIndex].dotPosition = Math.max(0, newDotTop);
             }
             
             // Update connection line
@@ -307,22 +318,23 @@ class Chiaroscuro {
         const noteData = this.notes.find(n => n.noteId === noteId);
         if (!noteData) return;
         
-        // Calculate horizontal connection
+        // Calculate connection points
         const dotCenter = {
-            x: dotRect.left + dotRect.width / 2,
-            y: dotRect.top + dotRect.height / 2
+            x: dotRect.left,
+            y: dotRect.bottom
         };
         
-        const noteEdge = {
-            x: noteData.columnType === 'plot' ? noteRect.right : noteRect.left,
-            y: dotCenter.y // Force horizontal alignment
+        // Line connects from bottom center of note to dot
+        const noteBottom = {
+            x: noteRect.left,
+            y: noteRect.bottom
         };
         
-        // Calculate line dimensions (horizontal only)
-        const length = Math.abs(noteEdge.x - dotCenter.x);
-        const startX = Math.min(dotCenter.x, noteEdge.x);
+        // Calculate line dimensions (horizontal distance)
+        const length = Math.abs(dotCenter.x - noteBottom.x);
+        const startX = Math.min(dotCenter.x, noteBottom.x);
         
-        // Set line properties (no rotation)
+        // Set line properties - horizontal line at dot's Y position
         line.style.width = `${length}px`;
         line.style.height = '2px';
         line.style.left = `${startX}px`;
@@ -378,8 +390,8 @@ class Chiaroscuro {
         labelEl.textContent = label;
         labelEl.title = label;
         
-        // Add click handler to edit label
-        labelEl.addEventListener('click', (e) => {
+        // Add double click handler to edit label
+        labelEl.addEventListener('dblclick', (e) => {
             e.stopPropagation();
             this.editSectionLabel(section.id, label);
         });
