@@ -29,6 +29,7 @@ class Chiaroscuro {
         this.deletedNotes = [];
         this.deletedSections = [];
         this.currentActiveNote = null;
+        this.activeSection = null;
 
         // Initialize
         this.setupEventListeners();
@@ -37,8 +38,16 @@ class Chiaroscuro {
 
     setupEventListeners() {
         // Click events for columns to add notes
-        this.plotContent.addEventListener('dblclick', (e) => this.handleColumnClick(e, 'plot'));
-        this.subtextContent.addEventListener('dblclick', (e) => this.handleColumnClick(e, 'subtext'));
+        // this.plotContent.addEventListener('dblclick', (e) => this.handleColumnDoubleClick(e, 'plot'));
+        // this.subtextContent.addEventListener('dblclick', (e) => this.handleColumnDoubleClick(e, 'subtext'));
+        this.plotContent.addEventListener('dblclick', (e) => {
+            console.log('Double-click detected on plot column');
+            this.handleColumnDoubleClick(e, 'plot');
+        });
+        this.subtextContent.addEventListener('dblclick', (e) => {
+            console.log('Double-click detected on subtext column');
+            this.handleColumnDoubleClick(e, 'subtext');
+        });
 
         // Click event for divider to add sections
         this.divider.addEventListener('click', (e) => this.handleDividerClick(e));
@@ -81,7 +90,7 @@ class Chiaroscuro {
         });
     }
 
-    handleColumnClick(e, columnType) {
+    handleColumnDoubleClick(e, columnType) {
         // Don't create a note if clicked on an existing note
         if (e.target.closest('.note') || e.target.closest('.note-dot')) return;
 
@@ -113,13 +122,32 @@ class Chiaroscuro {
         note.className = 'note';
         note.id = noteId;
         note.style.left = `${x}px`;
-        note.style.top = `${y}px`;
+        note.style.bottom = `${y}px`;
 
         // Create textarea inside note
         const textarea = document.createElement('textarea');
         textarea.placeholder = columnType === 'plot' ? 'Add plot point...' : 'Add subtext...';
-        textarea.addEventListener('input', () => this.updateConnectionLine(dotId, noteId));
         note.appendChild(textarea);
+
+        // Auto-resize height to fit content
+        const autoResize = () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+            this.updateConnectionLine(dotId, noteId);
+        };
+
+        textarea.addEventListener('input', autoResize);
+        textarea.addEventListener('paste', () => setTimeout(autoResize, 0));
+
+        // Delete note if it becomes empty and loses focus
+        textarea.addEventListener('blur', () => {
+            if (textarea.value.trim() === '') {
+                this.deleteNote(noteId);
+            }
+        });
+
+        // Initial resize
+        setTimeout(autoResize, 0);
 
         // Create dot on divider
         const dot = document.createElement('div');
@@ -145,7 +173,7 @@ class Chiaroscuro {
         });
 
         // Also track when textarea gets focus
-        note.querySelector('textarea').addEventListener('focus', () => {
+        textarea.addEventListener('focus', () => {
             this.setActiveNote(noteId, dotId);
         });
 
@@ -213,17 +241,21 @@ class Chiaroscuro {
         const dy = e.clientY - this.lastMousePosition.y;
         
         if (this.activeDot) {
-            // Dragging a dot (vertical only) - note does NOT follow
+            // Dragging a dot (vertical only) - note follows
             const dot = document.getElementById(this.activeDot.dotId);
+            const note = document.getElementById(this.activeDot.noteId);
             const currentDotTop = parseInt(dot.style.top);
+            const currentNoteBottom = parseInt(note.style.bottom);
             const newDotTop = Math.max(0, currentDotTop + dy);
             
             dot.style.top = `${newDotTop}px`;
+            note.style.bottom = `${currentNoteBottom + dy}px`;
             
-            // Update dot position in data (note position stays the same)
+            // Update both dot and note positions in data
             const noteIndex = this.notes.findIndex(note => note.dotId === this.activeDot.dotId);
             if (noteIndex !== -1) {
                 this.notes[noteIndex].dotPosition = newDotTop;
+                this.notes[noteIndex].position.y = currentNoteBottom + dy;
             }
             
             // Update connection line
@@ -233,14 +265,14 @@ class Chiaroscuro {
             const note = document.getElementById(this.activeNote.noteId);
             const dot = document.getElementById(this.activeNote.dotId);
             const currentNoteLeft = parseInt(note.style.left);
-            const currentNoteTop = parseInt(note.style.top);
+            const currentNoteBottom = parseInt(note.style.bottom);
             const currentDotTop = parseInt(dot.style.top);
             
             const newNoteLeft = currentNoteLeft + dx;
-            const newNoteTop = currentNoteTop + dy;
+            const newNoteBottom = currentNoteBottom + dy;
             
             note.style.left = `${newNoteLeft}px`;
-            note.style.top = `${newNoteTop}px`;
+            note.style.bottom = `${newNoteBottom}px`;
             
             // Calculate where dot should be based on note's bottom position
             const noteRect = note.getBoundingClientRect();
@@ -255,7 +287,7 @@ class Chiaroscuro {
             const noteIndex = this.notes.findIndex(note => note.noteId === this.activeNote.noteId);
             if (noteIndex !== -1) {
                 this.notes[noteIndex].position.x = newNoteLeft;
-                this.notes[noteIndex].position.y = newNoteTop;
+                this.notes[noteIndex].position.y = newNoteBottom;
                 this.notes[noteIndex].dotPosition = Math.max(0, newDotTop);
             }
             
@@ -320,8 +352,8 @@ class Chiaroscuro {
         
         // Calculate connection points
         const dotCenter = {
-            x: dotRect.left,
-            y: dotRect.bottom
+            x: dotRect.left + dotRect.width / 2,
+            y: dotRect.bottom - dotRect.height / 2
         };
         
         // Line connects from bottom center of note to dot
@@ -396,9 +428,15 @@ class Chiaroscuro {
             this.editSectionLabel(section.id, label);
         });
 
-        // Add drag handler for section
+        // Add drag handler for section (drag anywhere on the section line)
         section.addEventListener('mousedown', (e) => {
-            if (e.target === section) {
+            this.startDragSection(e, sectionId);
+            e.stopPropagation();
+        });
+
+        // Also allow dragging by the label
+        labelEl.addEventListener('mousedown', (e) => {
+            if (e.detail === 1) { // Single click for drag
                 this.startDragSection(e, sectionId);
                 e.stopPropagation();
             }
@@ -672,6 +710,10 @@ class Chiaroscuro {
             const textarea = noteEl.querySelector('textarea');
             if (textarea) {
                 textarea.value = noteData.text;
+                setTimeout(() => {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                }, 0);
             }
         }
         
